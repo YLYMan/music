@@ -2,17 +2,20 @@
   <div id="app">
     <!-- <img src="./assets/logo.png"> -->
     <m-header></m-header>
+    <tab></tab>
     <router-view/>
   </div>
 </template>
 
 <script>
   import MHeader from 'components/m-header/m-header'
+  import Tab from 'components/tab/tab'
 
   export default {
     name: 'App',
     components: {
-      MHeader
+      MHeader,
+      Tab
     }
   }
 </script>
@@ -21,5 +24,5 @@
   @import "common/stylus/variable"
 
   #app
-    color: $color-theme
+    // color: $color-theme
 </style>
