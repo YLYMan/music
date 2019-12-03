@@ -55,6 +55,10 @@
         this.slider.refresh()
       })
     },
+    destroyed() {
+      // 组件销毁的时候手动清除 定时器
+      clearTimeout(this.timer)
+    },
     methods: {
       // 横向滚动，先获取slider的宽度，再初始化slider
       _setSliderWidth(isResize) {

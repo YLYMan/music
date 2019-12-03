@@ -3,7 +3,10 @@
     <!-- <img src="./assets/logo.png"> -->
     <m-header></m-header>
     <tab></tab>
-    <router-view/>
+    <!-- keep-alive 缓存tab组件切换时的内容(优化内容) -->
+    <keep-alive>
+      <router-view/>
+    </keep-alive>
   </div>
 </template>
 
