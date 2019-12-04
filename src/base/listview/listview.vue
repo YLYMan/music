@@ -34,18 +34,29 @@
         </li>
       </ul>
     </div>
+    <!-- 滚动固定标题 -->
+    <div class="list-fixed" v-show="fixedTitle" ref="fixed">
+      <h1 class="fixed-title">{{ fixedTitle }}</h1>
+    </div>
+    <!-- 加载页面 -->
+    <div class="loading-container" v-show="!data.length">
+      <loading></loading>
+    </div>
   </scroll>
 </template>
 <script type='text/ecmascript-6'>
   import Scroll from 'base/scroll/scroll'
+  import Loading from 'base/loading/loading'
   import { getData } from 'common/js/dom'
   const ANCHOR_HEIGHT = 18 // 计算出来的右侧字母元素的高度
+  const TITLE_HEIGHT = 30 // 固定标题 的高度
   export default {
     name: '',
     data() {
       return {
         scrollY: -1, // 观测的y 值
-        currentIndex: 0 // 右侧哪个数字 高亮显示
+        currentIndex: 0, // 右侧哪个数字 高亮显示
+        diff: -1 // 上限 与 滚动位置 的 区间值
       }
     },
     props: {
@@ -67,6 +78,12 @@
         return this.data.map((group) => {
           return group.title.substr(0, 1) // 获取 title 的第一个字母
         })
+      },
+      fixedTitle() {
+        if (this.scrollY > 0) { // 向下拉时，this.scrollY 大于 0，正值
+          return ''
+        }
+        return this.data[this.currentIndex] ? this.data[this.currentIndex].title : ''
       }
     },
     methods: {
@@ -136,16 +153,26 @@
           // currentIndex 为 索引 i
           if (-newY >= height1 && -newY < height2) {
             this.currentIndex = i
+            this.diff = height2 + newY
             return
           }
         }
         // 当滚动到 底部，且 -newY 大于 最后一个元素的上限
         // listHeight 的长度比右侧元素多一个（最开始添加了 0）, 所以右侧最后一个元素的索引 是 -2 的值
         this.currentIndex = listHeight.length - 2
+      },
+      diff(newVal) { // 固定标题滑动实现（向上顶的实现）
+        let fixedTop = (newVal > 0 && newVal < TITLE_HEIGHT) ? newVal - TITLE_HEIGHT : 0 // 向上滚是负数 (newVal - TITLE_HEIGHT)
+        if (this.fixedTop === fixedTop) {
+          return
+        }
+        this.fixedTop = fixedTop // 减少dom 操作
+        this.$refs.fixed.style.transform = `translate3d(0, ${fixedTop}px, 0)`
       }
     },
     components: {
-      Scroll
+      Scroll,
+      Loading
     }
   }
 </script>
@@ -197,4 +224,21 @@
         font-size: $font-size-small
         &.current
           color: $color-theme
+    .list-fixed
+      position: absolute
+      top: 0
+      left: 0
+      width: 100%
+      .fixed-title
+        height: 30px
+        line-height: 30px
+        padding-left: 20px
+        font-size: $font-size-small
+        color: $color-text-l
+        background: $color-highlight-background
+    .loading-container
+      position: absolute
+      width: 100%
+      top: 50%
+      transform: translateY(-50%)
 </style>
