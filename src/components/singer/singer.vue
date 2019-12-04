@@ -1,6 +1,8 @@
 <template>
   <div class="singer">
-    <list-view :data="singers"></list-view>
+    <list-view :data="singers" @select="slectSinger"></list-view>
+    <!-- 子路由展示区 -->
+    <router-view></router-view>
   </div>
 </template>
 <script type='text/ecmascript-6'>
@@ -23,6 +25,11 @@
       this._getSingerList()
     },
     methods: {
+      slectSinger(singer) {
+        this.$router.push({
+          path: `/singer/${singer.id}`
+        })
+      },
       _getSingerList() {
         getSingerList().then((res) => {
           if (res.code === ERR_OK) {

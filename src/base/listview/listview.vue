@@ -10,7 +10,7 @@
       <li class="list-group" v-for="(group, index) in data" :key="index" ref="listGroup">
         <h2 class="list-group-title">{{ group.title }}</h2>
         <ul>
-          <li class="list-group-item" v-for="(item, i) in group.items" :key="i">
+          <li class="list-group-item" v-for="(item, i) in group.items" :key="i" @click="selectItem(item)">
             <img class="avatar" v-lazy="item.avatar">
             <span class="name">{{ item.name }}</span>
           </li>
@@ -87,6 +87,10 @@
       }
     },
     methods: {
+      selectItem(item) {
+        console.log(item)
+        this.$emit('select', item) // 派发点击事件，进行路由跳转
+      },
       onShortcutTouchStart(e) {
         let anchorIndex = getData(e.target, 'index') // anchor 锚点  anchorIndex 取到的是一个字符串
         let firstTouch = e.touches[0] // 获取手指最初的位置

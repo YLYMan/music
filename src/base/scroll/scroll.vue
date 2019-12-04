@@ -15,7 +15,7 @@
       },
       click: { // better-scroll 默认会阻止浏览器的原生 click 事件
         type: Boolean,
-        default: true
+        default: false
       },
       data: {
         type: Array,
