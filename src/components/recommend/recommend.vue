@@ -54,14 +54,12 @@
     created() {
       this._getRecommend()
       this._getDiscList()
-
     },
     methods: {
       _getRecommend() {
         getRecommend().then((res) => {
           if (res.code === ERR_OK) {
             this.recommends = res.data.slider
-            console.log(res.data.slider)
           }
         })
       },
