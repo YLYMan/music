@@ -8,8 +8,9 @@
 <script type='text/ecmascript-6'>
 
   import ListView from 'base/listview/listview'
-  import { getSingerList } from 'api/singer'
   import Singer from 'common/js/singer'
+  import { mapMutations } from 'vuex'
+  import { getSingerList } from 'api/singer'
   import { ERR_OK } from 'api/config'
 
   const HOT_NAME = '热门'
@@ -29,6 +30,7 @@
         this.$router.push({
           path: `/singer/${singer.id}`
         })
+        this.setSinger(singer) // 将 this.setSinger(singer)` 映射为 `this.$store.commit('SET_SINGER', singer)
       },
       _getSingerList() {
         getSingerList().then((res) => {
@@ -79,7 +81,10 @@
           return a.title.charCodeAt(0) - b.title.charCodeAt(0)
         })
         return hot.concat(ret)
-      }
+      },
+      ...mapMutations({ // 把 mutations 修改, 映射成一个方法名，如：setSinger
+        setSinger: 'SET_SINGER'
+      })
     },
     components: {
       ListView

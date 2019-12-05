@@ -28,6 +28,6 @@ module.exports = {
     'eol-last': 0, // 最后一行没空行
     'space-before-function-paren': 0, // 函数与（）没空格
     'indent': 'off', // 忽略缩进验证
-    'no-trailing-spaces': ['error', { 'skipBlankLines': true }] // 允许尾随空格 空行(调过空行)
+    'no-trailing-spaces': ['error', { 'skipBlankLines': true }], // 允许尾随空格 空行(调过空行)
   }
 }

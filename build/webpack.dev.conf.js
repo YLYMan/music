@@ -10,6 +10,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin')
 const FriendlyErrorsPlugin = require('friendly-errors-webpack-plugin')
 const portfinder = require('portfinder')
 const axios = require('axios')
+const bodyParser = require('body-parser')
 
 const HOST = process.env.HOST
 const PORT = process.env.PORT && Number(process.env.PORT)
@@ -36,6 +37,21 @@ const devWebpackConfig = merge(baseWebpackConfig, {
           params: req.query // 浏览器返回的参数
         }).then((response) => { // response 是 qq 接口返回的数据
           res.json(response.data) // 返回给前端。res 是自定义接口的返回
+        }).catch((e) => {
+          console.log(e)
+        })
+      })
+
+      app.post('/api/getPurlUrl', bodyParser.json(), function (req, res) { // 获取歌曲地址
+        const url = 'https://u.y.qq.com/cgi-bin/musicu.fcg'
+        axios.post(url, req.body, {
+          headers: {
+            referer: 'https://y.qq.com/',
+            origin: 'https://y.qq.com/',
+            'Content-type': 'application/x-www-form-urlencoded'
+          }
+        }).then((response) => {
+          res.json(response.data)
         }).catch((e) => {
           console.log(e)
         })
