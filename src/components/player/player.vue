@@ -26,7 +26,7 @@
           <div class="middle-l">
             <div class="cd-wrapper" ref="cdWrapper">
               <div class="cd">
-                <img class="image" :src="currentSong.image">
+                <img class="image" :src="currentSong.image" :class="cdCls">
               </div>
             </div>
             <div class="playing-lyric-wrapper">
@@ -52,22 +52,22 @@
             <span class="dot"></span>
           </div>
           <div class="progress-wrapper">
-            <span class="time time-l"></span>
+            <span class="time time-l">{{ format(currentTime) }}</span>
             <div class="progress-bar-wrapper"></div>
-            <span class="time time-r"></span>
+            <span class="time time-r">{{ format(currentSong.duration) }}</span>
           </div>
           <div class="operators">
             <div class="icon i-left">
               <i class=""></i>
             </div>
-            <div class="icon i-left">
-              <i class="icon-prev"></i>
+            <div class="icon i-left" :class="disableCls">
+              <i class="icon-prev" @click="prev"></i>
             </div>
-            <div class="icon i-center">
-              <i class="needsclick"></i>
+            <div class="icon i-center" :class="disableCls">
+              <i :class="playIcon" @click="togglePlaying"></i>
             </div>
-            <div class="icon i-right">
-              <i class="icon-next"></i>
+            <div class="icon i-right" :class="disableCls">
+              <i class="icon-next" @click="next"></i>
             </div>
             <div class="icon i-right">
               <i class="icon"></i>
@@ -81,19 +81,28 @@
       <div class="mini-player" v-show="!fullScreen" @click="open">
         <div class="icon">
           <div class="imgWrapper">
-            <img width="40" height="40" :src="currentSong.image">
+            <img width="40" height="40" :src="currentSong.image" :class="cdCls">
           </div>
         </div>
         <div class="text">
           <h2 class="name" v-html="currentSong.name"></h2>
           <p class="desc" v-html="currentSong.singer"></p>
         </div>
-        <div class="control"></div>
+        <div class="control">
+          <i :class="miniPlayIcon" @click.stop="togglePlaying"></i>
+        </div>
         <div class="control">
           <i class="icon-playlist"></i>
         </div>
       </div>
     </transition>
+    <!-- 歌曲加载到播放的时候，会派发一个 canplay 事件，请求不到 ，派发 error -->
+    <!-- 歌曲播放的时候派发 timeupdate 事件 -->
+    <audio :src="currentSong.url"
+      @canplay="ready"
+      @error="error"
+      @timeupdate="updateTime"
+      ref="audio"></audio>
   </div>
 </template>
 <script type='text/ecmascript-6'>
@@ -107,19 +116,47 @@
     name: 'palyer',
     data() {
       return {
-
+        songReady: false, // 歌曲是否加载完
+        currentTime: 0 // 当前播放的时间
       }
     },
     computed: {
+      cdCls() { // 通过 判断 播放状态，来控制cd 图片是否旋转
+        return this.playing ? 'play' : ''
+      },
+      playIcon() {
+        return this.playing ? 'icon-pause' : 'icon-play'
+      },
+      miniPlayIcon() {
+        return this.playing ? 'icon-pause-mini' : 'icon-play-mini'
+      },
+      disableCls() {
+        return this.songReady ? '' : 'disable'
+      },
       // mapGetters 辅助函数仅仅是将 store 中的 getter 映射到局部计算属性
       ...mapGetters([
         'fullScreen',
         'playList',
-        'currentSong'
+        'currentSong',
+        'playing',
+        'currentIndex'
       ])
     },
+    watch: {
+      currentSong() { // 监听当前歌曲的变化，实现 播放歌曲 功能
+        this.$nextTick(() => { // dom 渲染完成之后在 执行里面的方法
+          this.$refs.audio.play()
+        })
+      },
+      playing(newPlaying) { // 监听 播放状态 playing 的变化，实现 播放/暂停 的切换功能
+        const audio = this.$refs.audio
+        this.$nextTick(() => {
+          newPlaying ? audio.play() : audio.pause()
+        })
+      }
+    },
     created() {
-      console.log(this.currentSong)
+      // console.log(this.currentSong)
     },
     methods: {
       back() { // 收起全屏，提交了一个mutation，利用了 mapMutations 辅助函数
@@ -171,6 +208,63 @@
         this.$refs.cdWrapper.style.transition = ''
         this.$refs.cdWrapper.style[transform] = ''
       },
+      togglePlaying() { // 切换播放状态
+        if (!this.songReady) { // 歌曲没有加载好，return ，不让点击
+          return
+        }
+        this.setPlayingSate(!this.playing)
+      },
+      prev() { // 上一首 ，监控 currentIndex 即可
+        if (!this.songReady) { // 歌曲没有加载好，return ，不让点击
+          return
+        }
+        let index = this.currentIndex - 1
+        if (index === -1) {
+          index = this.playList.length - 1
+        }
+        this.setCurrentIndex(index)
+        if (!this.playing) { // 如果是 暂停时，切换上一首，重新切换状态
+          this.togglePlaying()
+        }
+        this.songReady = false
+      },
+      next() { // 下一首
+        if (!this.songReady) { // 歌曲没有加载好，return ，不让点击
+          return
+        }
+        let index = this.currentIndex + 1
+        if (index === this.playList.length) { // 如果是最后一首，设置为 0,
+          index = 0
+        }
+        this.setCurrentIndex(index)
+        if (!this.playing) { // 如果是 暂停时，切换下一首，重新切换状态
+          this.togglePlaying()
+        }
+        this.songReady = false // 重置加载完的标志
+      },
+      ready() { // 歌曲加载完 设置为 true
+        this.songReady = true
+      },
+      error() {
+        this.songReady = true
+      },
+      updateTime(e) { // 获取播放的时间
+        this.currentTime = e.target.currentTime
+      },
+      format(interval) { // 格式化 时间
+        interval = interval | 0 // | 0 可以向下取整，相当于 Math.floor()
+        const minute = interval / 60 | 0 // 获取分钟
+        const second = this._pad(interval % 60) // 秒
+        return `${minute}:${second}`
+      },
+      _pad(num, n = 2) { // 秒数一位数的时候前面 补 0
+        let len = num.toString().length
+        while (len < n) {
+          num = '0' + num
+          len++
+        }
+        return num
+      },
       _getPosAndScale() { // 获取初始的位置 和 缩放比例
         const targetWidth = 40 // mini cd 的宽度
         const paddingLeft = 40
@@ -187,7 +281,9 @@
         }
       },
       ...mapMutations({
-        setFullScreen: 'SET_FULL_SCREEN'
+        setFullScreen: 'SET_FULL_SCREEN',
+        setPlayingSate: 'SET_PLAYING_START', // 设置开始/暂停 mutation
+        setCurrentIndex: 'SET_CURRENT_INDEX' // 设置 当前歌曲的索引
       })
     },
     components: {
@@ -280,6 +376,7 @@
                 border 10px solid rgba(255, 255, 255, 0.1)
               .play
                 animation rotate 20s linear infinite
+
         .middle-r
           display: inline-block
           vertical-align: top
@@ -427,4 +524,11 @@
           position: absolute
           left: 0
           top: 0
+
+  @keyframes rotate
+    0%
+      transform: rotate(0)
+    100%
+      transform: rotate(360deg)
+
 </style>
