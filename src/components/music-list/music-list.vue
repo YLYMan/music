@@ -21,7 +21,7 @@
       @scroll="scroll"
       ref="list">
       <div class="song-list-wrapper">
-        <song-list :songs="songs"></song-list>
+        <song-list :songs="songs" @select="selectItem"></song-list>
       </div>
       <div class="loading-container" v-show="!songs.length">
         <loading></loading>
@@ -35,6 +35,8 @@
   import SongList from 'base/song-list/song-list'
   import Loading from 'base/loading/loading'
   import { prefixStyle } from 'common/js/dom'
+
+  import { mapActions } from 'vuex'
 
   const RESERVED_HEIGHT = 40
   const transform = prefixStyle('transform')
@@ -116,7 +118,16 @@
       },
       back() {
         this.$router.back() // 回退到上一层
-      }
+      },
+      selectItem(item, index) {
+        this.selectPlay({ // 此处参数 和 actions 中定义的参数 应该一致
+          list: this.songs,
+          index
+        })
+      },
+      ...mapActions([
+        'selectPlay'
+      ])
     },
     components: {
       Scroll,
