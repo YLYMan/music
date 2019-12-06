@@ -53,7 +53,10 @@
           </div>
           <div class="progress-wrapper">
             <span class="time time-l">{{ format(currentTime) }}</span>
-            <div class="progress-bar-wrapper"></div>
+            <!-- 进度条 -->
+            <div class="progress-bar-wrapper">
+              <progress-bar :percent="percent"></progress-bar>
+            </div>
             <span class="time time-r">{{ format(currentSong.duration) }}</span>
           </div>
           <div class="operators">
@@ -107,6 +110,7 @@
 </template>
 <script type='text/ecmascript-6'>
   import animations from 'create-keyframe-animation'
+  import ProgressBar from 'base/progress-bar/progress-bar'
   import { mapGetters, mapMutations } from 'vuex'
   import { prefixStyle } from 'common/js/dom'
 
@@ -132,6 +136,9 @@
       },
       disableCls() {
         return this.songReady ? '' : 'disable'
+      },
+      percent() { // 比例
+        return this.currentTime / this.currentSong.duration
       },
       // mapGetters 辅助函数仅仅是将 store 中的 getter 映射到局部计算属性
       ...mapGetters([
@@ -287,7 +294,7 @@
       })
     },
     components: {
-
+      ProgressBar
     }
   }
 </script>
