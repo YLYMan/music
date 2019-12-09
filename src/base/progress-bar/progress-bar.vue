@@ -1,11 +1,15 @@
 <template>
   <!-- 总长度 -->
-  <div class="progress-bar" ref="progressBar">
+  <div class="progress-bar" ref="progressBar" @click="progressClick">
     <div class="bar-inner">
       <!-- 走过的位置 -->
       <div class="progress" ref="progress"></div>
       <!-- 按钮，当前的位置 -->
-      <div class="progress-btn-wrapper" ref="progressBtn">
+      <div class="progress-btn-wrapper"
+        @touchstart.prevent="progressTouchStart"
+        @touchmove.prevent="progressTouchMove"
+        @touchend="progressTouchEnd"
+        ref="progressBtn">
         <div class="progress-btn"></div>
       </div>
     </div>
@@ -31,12 +35,49 @@
     },
     watch: {
       percent(newPercent) {
-        if (newPercent >= 0) {
+        if (newPercent >= 0 && !this.touch.initiated) { // !this.touch.initiated 表示小球 不在 拖动的过程中
           const barWidth = this.$refs.progressBar.clientWidth - progressBtnWidth
           const offsetWidth = newPercent * barWidth
-          this.$refs.progress.style.width = `${offsetWidth}px` // 进度条
-          this.$refs.progressBtn.style[transform] = `translate3d(${offsetWidth}px, 0, 0)` // 小球
+          this._offset(offsetWidth)
         }
+      }
+    },
+    created() {
+      this.touch = {}
+    },
+    methods: {
+      progressTouchStart(e) {
+        this.touch.initiated = true // 初始化标志
+        this.touch.startX = e.touches[0].pageX // 记录手指的落下位置
+        this.touch.left = this.$refs.progress.clientWidth // 记录走动滚动条的偏移宽度
+      },
+      progressTouchMove(e) {
+        if (!this.touch.initiated) {
+          return
+        }
+        const deltaX = e.touches[0].pageX - this.touch.startX // 滑动的距离
+        const offsetWidth = Math.min(this.$refs.progressBar.clientWidth - progressBtnWidth, Math.max(0, this.touch.left + deltaX)) // 黄色 bar 要走的距离
+        this._offset(offsetWidth)
+      },
+      progressTouchEnd() {
+        this.touch.initiated = false
+        // 派发事件，通知外部 百分比的 变化
+        this._triggerPercent()
+      },
+      progressClick(e) {
+        // 设置 偏移量
+        this._offset(e.offsetX)
+        // 派发事件，通知外部
+        this._triggerPercent()
+      },
+      _triggerPercent() {
+        const barWidth = this.$refs.progressBar.clientWidth - progressBtnWidth
+        const percent = this.$refs.progress.clientWidth / barWidth
+        this.$emit('percentChange', percent)
+      },
+      _offset(offsetWidth) { // 进度条 和 小球 要走的距离
+        this.$refs.progress.style.width = `${offsetWidth}px` // 进度条
+        this.$refs.progressBtn.style[transform] = `translate3d(${offsetWidth}px, 0, 0)` // 小球
       }
     }
   }
