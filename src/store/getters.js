@@ -18,3 +18,5 @@ export const currentIndex = state => state.currentIndex
 export const currentSong = (state) => { // 当前歌曲(计算而来的)
   return state.playList[state.currentIndex] || {}
 }
+
+export const disc = state => state.disc
