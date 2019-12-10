@@ -1,5 +1,5 @@
 <template>
-  <div class='recommend'>
+  <div class='recommend' ref="recommend">
     <!-- 需要传入数据 data -->
     <scroll class="recommend-content" :data="discList" ref="scroll">
       <!-- better-scroll 组件需要 新增加一个 div -->
@@ -43,7 +43,9 @@
   import Loading from 'base/loading/loading'
   import { getRecommend, getDiscList } from 'api/recommend'
   import { ERR_OK } from 'api/config'
+  import { playListMixin } from 'common/js/mixin'
   export default {
+    mixins: [playListMixin],
     name: 'recommend',
     data() {
       return {
@@ -56,6 +58,11 @@
       this._getDiscList()
     },
     methods: {
+      handlePlayList(playList) {
+        const bottom = playList.length > 0 ? '60px' : 0
+        this.$refs.recommend.style.bottom = bottom
+        this.$refs.scroll.refresh()
+      },
       _getRecommend() {
         getRecommend().then((res) => {
           if (res.code === ERR_OK) {

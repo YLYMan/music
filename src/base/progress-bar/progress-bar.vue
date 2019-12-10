@@ -66,7 +66,11 @@
       },
       progressClick(e) {
         // 设置 偏移量
-        this._offset(e.offsetX)
+        const rect = this.$refs.progressBar.getBoundingClientRect() // 按钮到左侧的位置
+        const offsetWidth = e.pageX - rect.left
+        this._offset(offsetWidth)
+        // 当我们点击 progressBtn 的时候，e.offsetX 获取的数据不对
+        // this._offset(e.offsetX)
         // 派发事件，通知外部
         this._triggerPercent()
       },

@@ -1,5 +1,6 @@
-import { getSongsUrl } from 'api/song'
-// import { ERR_OK } from 'api/config'
+import { getLyric, getSongsUrl } from 'api/song'
+import { ERR_OK } from 'api/config'
+import { Base64 } from 'js-base64'
 
 // 定义歌曲 为 类
 // 为什么不是 对象？ 类的扩展性 要比 对象 强！
@@ -13,6 +14,21 @@ export default class Song {
     this.duration = duration // 多长时间
     this.image = image
     this.url = url
+  }
+  getLyric() {
+    if (this.lyric) {
+      return Promise.resolve(this.lyric) // 因为 getLyric 本身返回的是一个 promise，所以用 Promise.resolve()
+    }
+    return new Promise((resolve, reject) => {
+      getLyric(this.mid).then((res) => {
+        if (res.retcode === ERR_OK) {
+          this.lyric = Base64.decode(res.lyric)
+          resolve(this.lyric)
+        } else {
+          reject(new Error('no lyric'))
+        }
+      })
+    })
   }
 }
 

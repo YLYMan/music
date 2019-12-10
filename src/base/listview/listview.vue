@@ -88,7 +88,6 @@
     },
     methods: {
       selectItem(item) {
-        console.log(item)
         this.$emit('select', item) // 派发点击事件，进行路由跳转
       },
       onShortcutTouchStart(e) {
@@ -109,6 +108,9 @@
       },
       scroll(pos) {
         this.scrollY = pos.y // 监听scroll 事件，实时获取到 scroll 滚动的 y值
+      },
+      refresh() {
+        this.$refs.listview.refresh()
       },
       _scrollTo(index) { // 滚到到指定位置
         if (!index && index !== 0) { // null 的情况，return

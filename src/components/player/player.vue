@@ -21,35 +21,42 @@
           <h2 class="subtitle" v-html="currentSong.singer"></h2>
         </div>
         <!-- 中间 -->
-        <div class="middle">
-          <!-- 中间左侧 -->
-          <div class="middle-l">
+        <div class="middle"
+          @touchstart.prevent="middleTouchStart"
+          @touchmove.prevent="middleTouchMove"
+          @touchend="middleTouchEnd"
+          >
+          <!-- 中间左侧 - CD -->
+          <div class="middle-l" ref="middleL">
             <div class="cd-wrapper" ref="cdWrapper">
               <div class="cd">
                 <img class="image" :src="currentSong.image" :class="cdCls">
               </div>
             </div>
             <div class="playing-lyric-wrapper">
-              <div class="playing-lyric"></div>
+              <div class="playing-lyric">{{playingLyric}}</div>
             </div>
           </div>
-          <!-- 中间右侧 -->
-          <div class="middle-r">
+          <!-- 中间右侧 - 歌词 -->
+          <scroll class="middle-r" :data="currentLyric && currentLyric.lines" ref="lyricList">
             <div class="lyric-wrapper">
-              <div>
-                <p class="text"></p>
+              <div v-if="currentLyric">
+                <p class="text"
+                  :class="{'current': currentLineNum === index}"
+                  v-for="(line, index) in currentLyric.lines" :key="index"
+                  ref="lyricLine">{{ line.txt }}</p>
               </div>
             </div>
             <div class="pure-music">
               <p></p>
             </div>
-          </div>
+          </scroll>
         </div>
         <!-- 底部 -->
         <div class="bottom">
           <div class="dot-wrapper">
-            <span class="dot"></span>
-            <span class="dot"></span>
+            <span class="dot" :class="{'active': currentShow === 'cd'}"></span>
+            <span class="dot" :class="{'active': currentShow === 'lyric'}"></span>
           </div>
           <div class="progress-wrapper">
             <span class="time time-l">{{ format(currentTime) }}</span>
@@ -59,9 +66,10 @@
             </div>
             <span class="time time-r">{{ format(currentSong.duration) }}</span>
           </div>
+          <!-- 操作,如 播放/暂停 -->
           <div class="operators">
-            <div class="icon i-left">
-              <i class=""></i>
+            <div class="icon i-left" @click="changeMode">
+              <i :class="iconMode"></i>
             </div>
             <div class="icon i-left" :class="disableCls">
               <i class="icon-prev" @click="prev"></i>
@@ -103,10 +111,12 @@
     </transition>
     <!-- 歌曲加载到播放的时候，会派发一个 canplay 事件，请求不到 ，派发 error -->
     <!-- 歌曲播放的时候派发 timeupdate 事件 -->
+    <!-- 歌曲播放到结尾的时候派发 ended 事件 -->
     <audio :src="currentSong.url"
       @canplay="ready"
       @error="error"
       @timeupdate="updateTime"
+      @ended="end"
       ref="audio"></audio>
   </div>
 </template>
@@ -114,10 +124,15 @@
   import animations from 'create-keyframe-animation'
   import ProgressBar from 'base/progress-bar/progress-bar'
   import ProgressCircle from 'base/progress-circle/progress-circle'
+  import Scroll from 'base/scroll/scroll'
+  import { playMode } from 'common/js/config'
   import { mapGetters, mapMutations } from 'vuex'
   import { prefixStyle } from 'common/js/dom'
+  import { shuffle } from 'common/js/util'
+  import Lyric from 'lyric-parser'
 
   const transform = prefixStyle('transform')
+  const transitionDuration = prefixStyle('transitionDuration')
 
   export default {
     name: 'palyer',
@@ -125,7 +140,11 @@
       return {
         songReady: false, // 歌曲是否加载完
         currentTime: 0, // 当前播放的时间
-        radius: 32
+        radius: 32,
+        currentLyric: null, // 当前歌曲歌词
+        currentLineNum: 0, // 当前歌词的所在行
+        currentShow: 'cd',
+        playingLyric: ''
       }
     },
     computed: {
@@ -134,6 +153,9 @@
       },
       playIcon() {
         return this.playing ? 'icon-pause' : 'icon-play'
+      },
+      iconMode() {
+        return this.mode === playMode.sequence ? 'icon-sequence' : this.mode === playMode.loop ? 'icon-loop' : 'icon-random'
       },
       miniPlayIcon() {
         return this.playing ? 'icon-pause-mini' : 'icon-play-mini'
@@ -150,14 +172,23 @@
         'playList',
         'currentSong',
         'playing',
-        'currentIndex'
+        'currentIndex',
+        'mode',
+        'sequenceList'
       ])
     },
     watch: {
-      currentSong() { // 监听当前歌曲的变化，实现 播放歌曲 功能
-        this.$nextTick(() => { // dom 渲染完成之后在 执行里面的方法
+      currentSong(newSong, oldSong) { // 监听当前歌曲的变化，实现 播放歌曲 功能
+        if (newSong.id === oldSong.id) { // 如果当前 歌曲的id一样的话，就不执行下面的方法
+          return
+        }
+        if (this.currentLyric) { // 切换下一首，要把当前的歌词 停止 滚动
+          this.currentLyric.stop()
+        }
+        setTimeout(() => { // dom 渲染完成之后在 执行里面的方法
           this.$refs.audio.play()
-        })
+          this.getLyric()
+        }, 1000)
       },
       playing(newPlaying) { // 监听 播放状态 playing 的变化，实现 播放/暂停 的切换功能
         const audio = this.$refs.audio
@@ -167,6 +198,7 @@
       }
     },
     created() {
+      this.touch = {}
       // console.log(this.currentSong)
     },
     methods: {
@@ -224,18 +256,39 @@
           return
         }
         this.setPlayingSate(!this.playing)
+        if (this.currentLyric) { // 切换歌词 滚动/暂停
+          this.currentLyric.togglePlay()
+        }
+      },
+      end() {
+        if (this.mode === playMode.loop) {
+          this.loop()
+        } else {
+          this.next()
+        }
+      },
+      loop() { // 循环播放
+        this.$refs.audio.currentTime = 0 // 播放的当前时间 重置为 0
+        this.$refs.audio.play()
+        if (this.currentLyric) { // 循环播放的情况下，歌词滚动到 最开始
+          this.currentLyric.seek(0)
+        }
       },
       prev() { // 上一首 ，监控 currentIndex 即可
         if (!this.songReady) { // 歌曲没有加载好，return ，不让点击
           return
         }
-        let index = this.currentIndex - 1
-        if (index === -1) {
-          index = this.playList.length - 1
-        }
-        this.setCurrentIndex(index)
-        if (!this.playing) { // 如果是 暂停时，切换上一首，重新切换状态
-          this.togglePlaying()
+        if (this.playList.length === 1) {
+          this.loop()
+        } else {
+          let index = this.currentIndex - 1
+          if (index === -1) {
+            index = this.playList.length - 1
+          }
+          this.setCurrentIndex(index)
+          if (!this.playing) { // 如果是 暂停时，切换上一首，重新切换状态
+            this.togglePlaying()
+          }
         }
         this.songReady = false
       },
@@ -243,13 +296,17 @@
         if (!this.songReady) { // 歌曲没有加载好，return ，不让点击
           return
         }
-        let index = this.currentIndex + 1
-        if (index === this.playList.length) { // 如果是最后一首，设置为 0,
-          index = 0
-        }
-        this.setCurrentIndex(index)
-        if (!this.playing) { // 如果是 暂停时，切换下一首，重新切换状态
-          this.togglePlaying()
+        if (this.playList.length === 1) { // 如果播放列表只有一首歌，就循环
+          this.loop()
+        } else {
+          let index = this.currentIndex + 1
+          if (index === this.playList.length) { // 如果是最后一首，设置为 0,
+            index = 0
+          }
+          this.setCurrentIndex(index)
+          if (!this.playing) { // 如果是 暂停时，切换下一首，重新切换状态
+            this.togglePlaying()
+          }
         }
         this.songReady = false // 重置加载完的标志
       },
@@ -269,12 +326,114 @@
         return `${minute}:${second}`
       },
       onProgressBarChange(percent) {
+        const currentTime = this.currentSong.duration * percent
         // 设置当前歌曲播放的时间
-        this.$refs.audio.currentTime = this.currentSong.duration * percent // 总时长 x 百分比
+        this.$refs.audio.currentTime = currentTime // 总时长 x 百分比
         // 拖动的时候暂停状态，停止拖动的时候就播放
         if (!this.playing) {
           this.togglePlaying()
         }
+        if (this.currentLyric) { // 设置滑动进度条，歌词同步的步骤
+          this.currentLyric.seek(currentTime * 1000)
+        }
+      },
+      changeMode() { // 切换模式
+        const mode = (this.mode + 1) % 3
+        // 提交 mutation，切换 mode
+        this.setMode(mode)
+        // 实现功能
+        let list = null
+        if (mode === playMode.random) {
+          list = shuffle(this.sequenceList)
+        } else {
+          list = this.sequenceList
+        }
+        this.resetCurrentIndex(list) // 设置当前播放的歌曲不变
+        this.setPlayList(list) // 设置播放列表
+      },
+      resetCurrentIndex(list) {
+        let index = list.findIndex((item) => {
+          return item.id === this.currentSong.id
+        })
+        this.setCurrentIndex(index)
+      },
+      getLyric() {
+        this.currentSong.getLyric().then((lyric) => {
+          this.currentLyric = new Lyric(lyric, this.handleLyric)
+          if (this.playing) { // 播放状态,歌词播放
+            this.currentLyric.play()
+          }
+        }).catch(() => { // 获取不到歌词的情况
+          this.currentLyric = null
+          this.playingLyric = ''
+          this.currentLineNum = 0
+        })
+      },
+      handleLyric({ lineNum, txt }) {
+        this.currentLineNum = lineNum
+        // 实现歌词始终在 中间
+        if (lineNum > 5) {
+          let lineEl = this.$refs.lyricLine[lineNum - 5]
+          this.$refs.lyricList.scrollToElement(lineEl, 1000)
+        } else {
+          this.$refs.lyricList.scrollTo(0, 0, 1000)
+        }
+        this.playingLyric = txt // 设置当前歌词
+      },
+      middleTouchStart(e) {
+        this.touch.initiated = true
+        const touch = e.touches[0]
+        this.touch.startX = touch.pageX
+        this.touch.startY = touch.pageY
+      },
+      middleTouchMove(e) {
+        if (!this.touch.initiated) { // 如果没有初始化，什么都不做
+          return
+        }
+        const touch = e.touches[0]
+        const deltaX = touch.pageX - this.touch.startX
+        const deltaY = touch.pageY - this.touch.startY
+        if (Math.abs(deltaY) > Math.abs(deltaX)) { // 纵向滚动的话，什么都不做
+          return
+        }
+        // 两种情况，在 cd 页，左滑；lyric 页，右滑
+        const left = this.currentShow === 'cd' ? 0 : -window.innerWidth
+        // Math.min(0, ...) 取最大不能大于 0 的值； Math.max(-window.innerWidth) 最小不能 小于 -window.innerWidth
+        const offsetWidth = Math.min(0, Math.max(-window.innerWidth, left + deltaX)) // 偏移的宽度
+        this.touch.percent = Math.abs(offsetWidth / window.innerWidth) // 偏移宽度与屏幕宽度的比例
+        this.$refs.lyricList.$el.style[transform] = `translate3d(${offsetWidth}px, 0, 0)`
+        this.$refs.lyricList.$el.style[transitionDuration] = 0
+        this.$refs.middleL.style.opacity = 1 - this.touch.percent
+        this.$refs.middleL.style[transitionDuration] = 0
+      },
+      middleTouchEnd() {
+        // 考虑两种情况：
+        let offsetWidth
+        let opacity
+        if (this.currentShow === 'cd') {
+          if (this.touch.percent > 0.1) { // 大于 10% 滑动
+            offsetWidth = -window.innerWidth
+            this.currentShow = 'lyric'
+            opacity = 0
+          } else {
+            offsetWidth = 0
+            opacity = 1
+          }
+        } else {
+          if (this.touch.percent < 0.9) {
+            offsetWidth = 0
+            this.currentShow = 'cd'
+            opacity = 1
+          } else {
+            offsetWidth = -window.innerWidth
+            opacity = 1
+          }
+        }
+        const time = 300
+        this.$refs.lyricList.$el.style[transform] = `translate3d(${offsetWidth}px, 0, 0)`
+        this.$refs.lyricList.$el.style[transitionDuration] = `${time}ms` // 缓动效果
+        this.$refs.middleL.style.opacity = opacity
+        this.$refs.middleL.style[transitionDuration] = `${time}ms`
       },
       _pad(num, n = 2) { // 秒数一位数的时候前面 补 0
         let len = num.toString().length
@@ -302,12 +461,15 @@
       ...mapMutations({
         setFullScreen: 'SET_FULL_SCREEN',
         setPlayingSate: 'SET_PLAYING_START', // 设置开始/暂停 mutation
-        setCurrentIndex: 'SET_CURRENT_INDEX' // 设置 当前歌曲的索引
+        setCurrentIndex: 'SET_CURRENT_INDEX', // 设置 当前歌曲的索引
+        setMode: 'SET_MODE',
+        setPlayList: 'SET_PLAY_LIST'
       })
     },
     components: {
       ProgressBar,
-      ProgressCircle
+      ProgressCircle,
+      Scroll
     }
   }
 </script>
@@ -396,7 +558,16 @@
                 border 10px solid rgba(255, 255, 255, 0.1)
               .play
                 animation rotate 20s linear infinite
-
+          .playing-lyric-wrapper
+            width: 80%
+            margin: 30px auto 0 auto
+            overflow: hidden
+            text-align: center
+            .playing-lyric
+              height: 20px
+              line-height: 20px
+              font-size: $font-size-medium
+              color: $color-text-l
         .middle-r
           display: inline-block
           vertical-align: top

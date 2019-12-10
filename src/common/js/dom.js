@@ -45,6 +45,7 @@ let vendor = (function () {
   return false
 })()
 
+// 前缀样式封装
 export function prefixStyle(style) {
   if (vendor === false) {
     return false
