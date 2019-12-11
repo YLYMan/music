@@ -17,11 +17,19 @@
         type: Boolean,
         default: false
       },
-      data: {
+      data: { // 传入的数据
         type: Array,
         default: null
       },
       listenScroll: { // 要不要监听滚动事件
+        type: Boolean,
+        default: false
+      },
+      pullup: { // 上拉刷新事件
+        type: Boolean,
+        default: false
+      },
+      beforeScroll: { // 用来对手机端的弹起键盘做处理
         type: Boolean,
         default: false
       }
@@ -46,6 +54,20 @@
           let me = this
           this.scroll.on('scroll', (pos) => {
             me.$emit('scroll', pos) // 派发一个 scroll 事件
+          })
+        }
+        // 如果 this.pullup 为 true，就监听 scrollEnd 事件(滚动完了)
+        if (this.pullup) {
+          this.scroll.on('scrollEnd', () => {
+            if (this.scroll.y <= (this.scroll.maxScrollY + 50)) { // this.scroll.maxScrollY + 50 距离底部的50像素
+              this.$emit('scrollToEnd')
+            }
+          })
+        }
+        // 监听 beforeScrollStart 滚动前事件
+        if (this.beforeScroll) {
+          this.scroll.on('beforeScrollStart', () => {
+            this.$emit('beforeScroll')
           })
         }
       },
