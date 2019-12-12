@@ -109,6 +109,7 @@
         }
       },
       selectItem(item) {
+        // 跳到歌手或歌曲页面
         if (item.type === TYPE_SINGER) { // 歌手
           const singer = new Singer({
             id: item.singermid,
@@ -121,6 +122,8 @@
         } else { // 歌曲
           this.insertSong(item) // 提交mutation,修改数据
         }
+        // 派发事件(本身不包括存储搜索历史的)
+        this.$emit('select')
       },
       listScroll() { // 列表滚动
         this.$emit('listScroll')

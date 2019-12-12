@@ -22,3 +22,5 @@ export const currentSong = (state) => { // 当前歌曲(计算而来的)
 export const disc = state => state.disc
 
 export const topList = state => state.topList
+
+export const searchHistory = state => state.searchHistory
