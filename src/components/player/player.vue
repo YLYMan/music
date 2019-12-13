@@ -104,11 +104,13 @@
             <i :class="miniPlayIcon" @click.stop="togglePlaying" class="icon-mini"></i>
           </progress-circle>
         </div>
-        <div class="control">
+        <div class="control" @click.stop="showPlaylist">
           <i class="icon-playlist"></i>
         </div>
       </div>
     </transition>
+    <!-- 播放列表 -->
+    <playlist ref="playlist"></playlist>
     <!-- 歌曲加载到播放的时候，会派发一个 canplay 事件，请求不到 ，派发 error -->
     <!-- 歌曲播放的时候派发 timeupdate 事件 -->
     <!-- 歌曲播放到结尾的时候派发 ended 事件 -->
@@ -125,16 +127,18 @@
   import ProgressBar from 'base/progress-bar/progress-bar'
   import ProgressCircle from 'base/progress-circle/progress-circle'
   import Scroll from 'base/scroll/scroll'
+  import Playlist from 'components/playlist/playlist.vue'
+  import { playerMixin } from 'common/js/mixin'
   import { playMode } from 'common/js/config'
-  import { mapGetters, mapMutations } from 'vuex'
+  import { mapGetters, mapMutations, mapActions } from 'vuex'
   import { prefixStyle } from 'common/js/dom'
-  import { shuffle } from 'common/js/util'
   import Lyric from 'lyric-parser'
 
   const transform = prefixStyle('transform')
   const transitionDuration = prefixStyle('transitionDuration')
 
   export default {
+    mixins: [playerMixin],
     name: 'palyer',
     data() {
       return {
@@ -154,9 +158,6 @@
       playIcon() {
         return this.playing ? 'icon-pause' : 'icon-play'
       },
-      iconMode() {
-        return this.mode === playMode.sequence ? 'icon-sequence' : this.mode === playMode.loop ? 'icon-loop' : 'icon-random'
-      },
       miniPlayIcon() {
         return this.playing ? 'icon-pause-mini' : 'icon-play-mini'
       },
@@ -169,16 +170,15 @@
       // mapGetters 辅助函数仅仅是将 store 中的 getter 映射到局部计算属性
       ...mapGetters([
         'fullScreen',
-        'playList',
-        'currentSong',
         'playing',
-        'currentIndex',
-        'mode',
-        'sequenceList'
+        'currentIndex'
       ])
     },
     watch: {
       currentSong(newSong, oldSong) { // 监听当前歌曲的变化，实现 播放歌曲 功能
+        if (!newSong.id) { // 如果没有歌曲，就什么都不做
+          return
+        }
         if (newSong.id === oldSong.id) { // 如果当前 歌曲的id一样的话，就不执行下面的方法
           return
         }
@@ -255,7 +255,7 @@
         if (!this.songReady) { // 歌曲没有加载好，return ，不让点击
           return
         }
-        this.setPlayingSate(!this.playing)
+        this.setPlayingState(!this.playing)
         if (this.currentLyric) { // 切换歌词 滚动/暂停
           this.currentLyric.togglePlay()
         }
@@ -312,6 +312,8 @@
       },
       ready() { // 歌曲加载完 设置为 true
         this.songReady = true
+        // 保存当前歌曲到本地及vuex
+        this.savePlayHistory(this.currentSong)
       },
       error() {
         this.songReady = true
@@ -337,26 +339,6 @@
           this.currentLyric.seek(currentTime * 1000)
         }
       },
-      changeMode() { // 切换模式
-        const mode = (this.mode + 1) % 3
-        // 提交 mutation，切换 mode
-        this.setMode(mode)
-        // 实现功能
-        let list = null
-        if (mode === playMode.random) {
-          list = shuffle(this.sequenceList)
-        } else {
-          list = this.sequenceList
-        }
-        this.resetCurrentIndex(list) // 设置当前播放的歌曲不变
-        this.setPlayList(list) // 设置播放列表
-      },
-      resetCurrentIndex(list) {
-        let index = list.findIndex((item) => {
-          return item.id === this.currentSong.id
-        })
-        this.setCurrentIndex(index)
-      },
       getLyric() {
         this.currentSong.getLyric().then((lyric) => {
           this.currentLyric = new Lyric(lyric, this.handleLyric)
@@ -379,6 +361,9 @@
           this.$refs.lyricList.scrollTo(0, 0, 1000)
         }
         this.playingLyric = txt // 设置当前歌词
+      },
+      showPlaylist() {
+        this.$refs.playlist.show()
       },
       middleTouchStart(e) {
         this.touch.initiated = true
@@ -461,15 +446,17 @@
       ...mapMutations({
         setFullScreen: 'SET_FULL_SCREEN',
         setPlayingSate: 'SET_PLAYING_START', // 设置开始/暂停 mutation
-        setCurrentIndex: 'SET_CURRENT_INDEX', // 设置 当前歌曲的索引
-        setMode: 'SET_MODE',
-        setPlayList: 'SET_PLAY_LIST'
-      })
+        setCurrentIndex: 'SET_CURRENT_INDEX' // 设置 当前歌曲的索引
+      }),
+      ...mapActions([
+        'savePlayHistory'
+      ])
     },
     components: {
       ProgressBar,
       ProgressCircle,
-      Scroll
+      Scroll,
+      Playlist
     }
   }
 </script>

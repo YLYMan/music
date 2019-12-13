@@ -32,6 +32,10 @@
       beforeScroll: { // 用来对手机端的弹起键盘做处理
         type: Boolean,
         default: false
+      },
+      refreshDelay: { // 延迟时间
+        type: Number,
+        default: 20
       }
     },
     mounted() {
@@ -92,7 +96,7 @@
       data() { // 监听data 的变化，发生变化刷新
         setTimeout(() => {
           this.refresh()
-        }, 20)
+        }, this.refreshDelay)
       }
     }
   }
