@@ -112,10 +112,15 @@
     <!-- 播放列表 -->
     <playlist ref="playlist"></playlist>
     <!-- 歌曲加载到播放的时候，会派发一个 canplay 事件，请求不到 ，派发 error -->
+    <!-- canplay 事件： 当文件就绪可以开始播放时运行的脚本（缓冲已足够开始时）。 -->
+    <!-- play 事件： 当媒介已就绪可以开始播放时运行的脚本。 -->
+    <!-- playing 事件： 当媒介已开始播放时运行的脚本 -->
+    <!-- pause 事件： 当媒介被用户或程序暂停时运行的脚本。 -->
     <!-- 歌曲播放的时候派发 timeupdate 事件 -->
     <!-- 歌曲播放到结尾的时候派发 ended 事件 -->
     <audio :src="currentSong.url"
-      @canplay="ready"
+      @playing="ready"
+      @pause="paused"
       @error="error"
       @timeupdate="updateTime"
       @ended="end"
@@ -185,7 +190,8 @@
         if (this.currentLyric) { // 切换下一首，要把当前的歌词 停止 滚动
           this.currentLyric.stop()
         }
-        setTimeout(() => { // dom 渲染完成之后在 执行里面的方法
+        clearTimeout(this.timer)
+        this.timer = setTimeout(() => { // dom 渲染完成之后在 执行里面的方法
           this.$refs.audio.play()
           this.getLyric()
         }, 1000)
@@ -270,6 +276,7 @@
       loop() { // 循环播放
         this.$refs.audio.currentTime = 0 // 播放的当前时间 重置为 0
         this.$refs.audio.play()
+        this.setPlayingState(true)
         if (this.currentLyric) { // 循环播放的情况下，歌词滚动到 最开始
           this.currentLyric.seek(0)
         }
@@ -280,6 +287,7 @@
         }
         if (this.playList.length === 1) {
           this.loop()
+          return
         } else {
           let index = this.currentIndex - 1
           if (index === -1) {
@@ -298,6 +306,7 @@
         }
         if (this.playList.length === 1) { // 如果播放列表只有一首歌，就循环
           this.loop()
+          return
         } else {
           let index = this.currentIndex + 1
           if (index === this.playList.length) { // 如果是最后一首，设置为 0,
@@ -314,6 +323,12 @@
         this.songReady = true
         // 保存当前歌曲到本地及vuex
         this.savePlayHistory(this.currentSong)
+      },
+      paused() {
+        this.setPlayingState(false)
+        if (this.currentLyric) {
+          this.currentLyric.stop()
+        }
       },
       error() {
         this.songReady = true
@@ -341,6 +356,9 @@
       },
       getLyric() {
         this.currentSong.getLyric().then((lyric) => {
+          if (this.currentSong.lyric !== lyric) {
+            return
+          }
           this.currentLyric = new Lyric(lyric, this.handleLyric)
           if (this.playing) { // 播放状态,歌词播放
             this.currentLyric.play()
@@ -445,7 +463,7 @@
       },
       ...mapMutations({
         setFullScreen: 'SET_FULL_SCREEN',
-        setPlayingSate: 'SET_PLAYING_START', // 设置开始/暂停 mutation
+        setPlayingState: 'SET_PLAYING_START', // 设置开始/暂停 mutation
         setCurrentIndex: 'SET_CURRENT_INDEX' // 设置 当前歌曲的索引
       }),
       ...mapActions([
